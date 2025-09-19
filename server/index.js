@@ -1,30 +1,36 @@
-import express from "express";
-import mongoose from "mongoose";
-import cors from "cors";
-import dotenv from "dotenv";
-import productRoutes from "./routes/products.js";
-import orderRoutes from "./routes/orders.js";
+// server/index.js
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import mongoose from 'mongoose';
 
-dotenv.config();
 const app = express();
-
-app.use(cors());
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
-app.use("/api/products", productRoutes);
-app.use("/api/orders", orderRoutes);
+// Health
+app.get('/health', (_req, res) => res.send('ok'));
 
-app.get("/", (_req, res) => res.json({ ok: true, message: "API running" }));
+// --- Mongo: optional verbinden, aber NICHT crashen ---
+const MONGO = process.env.MONGO_URL || process.env.MONGODB_URI;
 
-const start = async () => {
-  try {
-    await mongoose.connect(process.env.MONGODB_URI);
-    app.listen(process.env.PORT || 4000, () =>
-      console.log(`Server on http://localhost:${process.env.PORT || 4000}`)
-    );
-  } catch (err) {
-    console.error(err);
-    process.exit(1);
+async function connectMongo() {
+  if (!MONGO) {
+    console.warn('⚠️  Keine MONGO_URL/MONGODB_URI gesetzt – starte ohne DB');
+    return;
   }
-};
-start();
+  try {
+    await mongoose.connect(MONGO);
+    console.log('✅ MongoDB connected');
+  } catch (err) {
+    console.error('❌ Mongo connect failed:', err.message);
+    // NICHT process.exit(); wir bleiben am Leben, damit /health funktioniert
+  }
+}
+connectMongo();
+
+// Start
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => {
+  console.log(`🚀 API listening on port ${PORT}`);
+});
